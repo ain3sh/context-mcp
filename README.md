@@ -1,11 +1,49 @@
 # Context Tools MCP Server
 
-An MCP server providing intelligent documentation management and search tools for AI agents.
+An MCP server providing intelligent documentation management and search tools for AI agents. Built in TypeScript for easy installation with `npx`.
 
 ## Installation
 
+### Using npx (recommended)
+
 ```bash
-pip install -r requirements.txt
+npx -y @ain3sh/context-mcp
+```
+
+### Global installation
+
+```bash
+npm install -g @ain3sh/context-mcp
+context-mcp
+```
+
+### From source
+
+```bash
+git clone https://github.com/ain3sh/context-mcp.git
+cd context-mcp
+npm install
+npm run build
+npm start
+```
+
+## Claude Desktop Configuration
+
+Add to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "context-tools": {
+      "command": "npx",
+      "args": ["-y", "@ain3sh/context-mcp"],
+      "env": {
+        "GEMINI_API_KEY": "your-api-key-here",
+        "CONTEXT7_API_KEY": "optional-for-higher-rate-limits"
+      }
+    }
+  }
+}
 ```
 
 ## Environment Variables
@@ -17,6 +55,8 @@ pip install -r requirements.txt
 | `FETCH_DOCS_LOW_TOKENS` | No | Custom token count for "low" depth (default: 5000) |
 | `FETCH_DOCS_MEDIUM_TOKENS` | No | Custom token count for "medium" depth (default: 15000) |
 | `FETCH_DOCS_HIGH_TOKENS` | No | Custom token count for "high" depth (default: 50000) |
+| `FETCH_DOCS_SEMANTIC_FLOOR` | No | Minimum confidence for fuzzy matching (default: 60) |
+| `LOG_LEVEL` | No | Logging level: "debug", "info", "error" (default: "info") |
 
 ---
 
@@ -27,6 +67,8 @@ pip install -r requirements.txt
 Fetch library documentation from Context7 with smart matching.
 
 **When to use:** You need API docs, code examples, or guides for a library/framework.
+
+**Matching Algorithm:** Uses 2-tier matching (exact → fuzzy) to find the right library, so "react", "React", or "mongodb" all match correctly.
 
 #### Parameters
 
@@ -40,21 +82,21 @@ Fetch library documentation from Context7 with smart matching.
 
 #### Examples
 
-```python
-# Simple fetch
-fetch_docs(target="react")
+```javascript
+// Simple fetch
+fetch_docs({ target: "react" })
 
-# With tag filter
-fetch_docs(target="next.js", tag="routing")
+// With tag filter
+fetch_docs({ target: "next.js", tag: "routing" })
 
-# Deep dive
-fetch_docs(target="pytorch", depth="high")
+// Deep dive
+fetch_docs({ target: "pytorch", depth: "high" })
 
-# Specific version
-fetch_docs(target="next.js", version="v15.1.8")
+// Specific version
+fetch_docs({ target: "next.js", version: "v15.1.8" })
 
-# Browse available libraries
-fetch_docs(target="mongo", browse_index=true)
+// Browse available libraries
+fetch_docs({ target: "mongo", browse_index: true })
 ```
 
 ---
@@ -64,6 +106,8 @@ fetch_docs(target="mongo", browse_index=true)
 Semantic search across your documentation using AI-powered understanding.
 
 **When to use:** You have complex conceptual questions about documented topics, or need synthesized answers from multiple sources.
+
+**Requires:** `GEMINI_API_KEY` environment variable.
 
 #### Parameters
 
@@ -78,31 +122,56 @@ Semantic search across your documentation using AI-powered understanding.
 
 #### Examples
 
-```python
-# Simple search
-ask_docs_agent(target="openai", query="How does function calling work?")
+```javascript
+// Simple search
+ask_docs_agent({ target: "openai", query: "How does function calling work?" })
 
-# With more results
-ask_docs_agent(target="unstructured", query="PDF parsing options", top_k=5)
+// With more results
+ask_docs_agent({ target: "unstructured", query: "PDF parsing options", top_k: 5 })
 
-# Include source excerpts
-ask_docs_agent(target="modelcontextprotocol", query="tool annotations", include_chunks=true)
+// Include source excerpts
+ask_docs_agent({ target: "modelcontextprotocol", query: "tool annotations", include_chunks: true })
 ```
 
 ---
 
-## Running the Server
+### `curate` (Placeholder)
+
+Manage and organize documentation collections. Implementation pending.
+
+### `climb` (Placeholder)
+
+Navigate through documentation hierarchy and structure. Implementation pending.
+
+---
+
+## Features
+
+- **Smart Library Matching**: 2-tier matching algorithm (exact → fuzzy) finds the right library from partial names
+- **Store Caching**: 5-minute TTL cache for Gemini File Search stores reduces API calls
+- **Response Limits**: Automatic truncation at 25k characters prevents context overflow
+- **Environment-Driven Configuration**: All constants configurable via environment variables
+- **User-Friendly Errors**: Detailed error messages with troubleshooting suggestions
+
+## Development
 
 ```bash
-python server.py
+# Install dependencies
+npm install
+
+# Run in development mode with hot reload
+npm run dev
+
+# Build for production
+npm run build
+
+# Run production build
+npm start
+
+# Clean build artifacts
+npm run clean
 ```
 
-## Running Tests
+## License
 
-```bash
-# Test fetch_docs
-python3 test_fetch_docs.py
-
-# Test ask_docs_agent
-python3 test_ask_docs_agent.py
-```
+MIT
