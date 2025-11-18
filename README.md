@@ -19,7 +19,7 @@ An MCP server providing intelligent documentation retrieval and semantic search 
 
 ## Architecture
 
-```
+```text
 Context7 API                    Gemini FileSearchStores (cloud)
      ↓                                      ↓
      └──────────── context-mcp server ──────┘

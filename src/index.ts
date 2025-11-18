@@ -708,16 +708,28 @@ function formatAskDocsJson(
     }));
   }
 
-  const jsonStr = JSON.stringify(outputDict, null, 2);
+  let jsonStr = JSON.stringify(outputDict, null, 2);
 
-  // Check character limit
+  // Enforce character limit by progressively dropping chunks
+  if (jsonStr.length > CHARACTER_LIMIT && params.include_chunks && result.chunks.length > 0) {
+    // Remove chunks to fit within limit
+    delete outputDict.chunks;
+    outputDict.chunks_omitted = {
+      reason: 'Response exceeded character limit',
+      original_chunk_count: result.chunks.length,
+      suggestion: 'Set include_chunks=false or reduce top_k',
+    };
+    jsonStr = JSON.stringify(outputDict, null, 2);
+  }
+
+  // If still over limit (base response too large), add warning
   if (jsonStr.length > CHARACTER_LIMIT) {
-    (outputDict as Record<string, unknown>)._truncation_warning = {
+    outputDict._truncation_warning = {
       warning: `Response exceeds ${CHARACTER_LIMIT} characters`,
       original_length: jsonStr.length,
-      suggestion: 'Try reducing top_k or disabling include_chunks',
+      suggestion: 'Try a more specific query',
     };
-    return JSON.stringify(outputDict, null, 2);
+    jsonStr = JSON.stringify(outputDict, null, 2);
   }
 
   return jsonStr;
