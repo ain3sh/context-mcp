@@ -22,7 +22,7 @@ No installation required. Always uses the latest version.
 ### From Source
 ```bash
 git clone https://github.com/ain3sh/context-mcp.git
-cd context-tools
+cd context-mcp
 npm install
 npm run build
 npm start
@@ -36,7 +36,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "context-tools": {
+    "context-mcp": {
       "command": "npx",
       "args": ["-y", "github:ain3sh/context-mcp"],
       "env": {
@@ -53,7 +53,7 @@ Create `.mcp.json` in your project root:
 ```json
 {
   "mcpServers": {
-    "context-tools": {
+    "context-mcp": {
       "type": "stdio", 
       "command": "npx",
       "args": ["-y", "github:ain3sh/context-mcp"],
@@ -344,7 +344,7 @@ timeout 5s GEMINI_API_KEY=your_key npx .
 
 ### Project Structure
 ```text
-context-tools/
+context-mcp/
 ├── src/
 │   └── index.ts         # MCP server implementation
 ├── dist/
