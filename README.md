@@ -14,14 +14,14 @@ Documentation tools for AI agents — fetch library docs, search semantically, s
 
 ### Recommended: `npx`
 ```bash
-npx -y github:ain3sh/context-tools
+npx -y github:ain3sh/context-mcp
 ```
 
 No installation required. Always uses the latest version.
 
 ### From Source
 ```bash
-git clone https://github.com/ain3sh/context-tools.git
+git clone https://github.com/ain3sh/context-mcp.git
 cd context-tools
 npm install
 npm run build
@@ -38,7 +38,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "context-tools": {
       "command": "npx",
-      "args": ["-y", "github:ain3sh/context-tools"],
+      "args": ["-y", "github:ain3sh/context-mcp"],
       "env": {
         "GEMINI_API_KEY": "your_api_key_here"
       }
@@ -56,7 +56,7 @@ Create `.mcp.json` in your project root:
     "context-tools": {
       "type": "stdio", 
       "command": "npx",
-      "args": ["-y", "github:ain3sh/context-tools"],
+      "args": ["-y", "github:ain3sh/context-mcp"],
       "env": {
         "GEMINI_API_KEY": "${GEMINI_API_KEY}"
       }
@@ -317,7 +317,7 @@ This server is optimized to minimize context usage:
 - Run `npm run build` to compile TypeScript
 - Check MCP config JSON is valid
 - Review client logs (e.g., `~/Library/Logs/Claude/mcp*.log`)
-- Test manually: `GEMINI_API_KEY=key npx -y github:ain3sh/context-tools`
+- Test manually: `GEMINI_API_KEY=key npx -y github:ain3sh/context-mcp`
 
 ## Development
 
