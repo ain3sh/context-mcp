@@ -319,7 +319,9 @@ export async function askDocsAgent(
     }
 
     const grounding = response.candidates[0].groundingMetadata;
-    const mainResponse = (response as any).text ?? "No response generated";
+    // Extract text from the response content parts
+    const parts = response.candidates[0].content?.parts;
+    const mainResponse = parts?.map(part => part.text ?? "").join("") || "No response generated";
 
     if (params.format === "json") {
       return formatAskJson(params, mainResponse, grounding);

@@ -266,6 +266,8 @@ async function fetchWithLimits(url: string): Promise<{
 }
 
 async function checkRobotsTxt(url: string): Promise<void> {
+  let disallowAll = false;
+
   try {
     const u = new URL(url);
     const robotsUrl = `${u.origin}/robots.txt`;
@@ -277,7 +279,6 @@ async function checkRobotsTxt(url: string): Promise<void> {
     const text: string = typeof res.data === "string" ? res.data : String(res.data);
     const lines = text.split(/\r?\n/);
     let appliesToAll = false;
-    let disallowAll = false;
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith("#")) continue;
@@ -293,13 +294,16 @@ async function checkRobotsTxt(url: string): Promise<void> {
         }
       }
     }
-    if (disallowAll) {
-      throw new Error(
-        "Access disallowed by robots.txt for autonomous agents (Disallow: /)",
-      );
-    }
   } catch {
-    // treat robots errors as no restrictions
+    // Network errors when fetching robots.txt are treated as no restrictions
+    return;
+  }
+
+  // Throw outside try-catch so it propagates to caller
+  if (disallowAll) {
+    throw new Error(
+      "Access disallowed by robots.txt for autonomous agents (Disallow: /)",
+    );
   }
 }
 
@@ -473,7 +477,7 @@ async function processSingleUrl(
       success: false,
       message: error instanceof Error ? error.message : String(error),
       url,
-    } as any;
+    };
   }
 }
 

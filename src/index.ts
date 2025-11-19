@@ -163,7 +163,8 @@ async function main(): Promise<void> {
         browse_index: args.browse_index ?? false,
       };
       const result = await fetchDocsTool(params);
-      return { content: [{ type: "text", text: result }] };
+      const isError = result.startsWith("# API Error") || result.startsWith("Error ");
+      return { content: [{ type: "text", text: result }], isError };
     },
   );
 
@@ -200,7 +201,8 @@ async function main(): Promise<void> {
         refresh: args.refresh ?? false,
       };
       const result = await fetchSiteTool(params);
-      return { content: [{ type: "text", text: result }] };
+      const isError = result.startsWith("Error ") || result.includes("Error fetching");
+      return { content: [{ type: "text", text: result }], isError };
     },
   );
 
@@ -228,7 +230,8 @@ async function main(): Promise<void> {
           metadata_filter: args.metadata_filter,
         };
         const result = await askDocsAgentTool(geminiClient!, params);
-        return { content: [{ type: "text", text: result }] };
+        const isError = result.includes("Error:") || result.startsWith("Error ");
+        return { content: [{ type: "text", text: result }], isError };
       },
     );
   }
