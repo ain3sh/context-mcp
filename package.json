@@ -1,16 +1,36 @@
 {
-  "name": "context-mcp",
+  "name": "@ain3sh/context-mcp",
   "version": "1.0.0",
-  "description": "MCP server for documentation tools - fetch library docs, scrape websites, semantic search",
+  "description": "MCP server for intelligent documentation management - fetch from Context7 and semantic search with Gemini File Search",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ain3sh/context-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "gemini",
+    "context7",
+    "documentation",
+    "semantic-search",
+    "file-search"
+  ],
+  "author": "ain3sh",
+  "license": "MIT",
   "main": "dist/index.js",
   "bin": {
     "context-mcp": "dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "prepare": "npm run build",
     "clean": "rm -rf dist"
   },
   "engines": {
