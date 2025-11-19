@@ -1,108 +1,143 @@
 # Context Tools MCP Server
 
-An MCP server providing intelligent documentation management and search tools for AI agents.
+Documentation tools for AI agents — fetch library docs, search semantically, scrape websites cleanly.
 
-## Installation
+## Quick Start
 
 ```bash
-pip install -r requirements.txt
+# Install dependencies
+npm install
+
+# Build TypeScript → dist/
+npm run build
+
+# Run MCP server over stdio
+node dist/index.js
+# or during development
+npm run dev
 ```
-
-## Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `GEMINI_API_KEY` | Yes (for ask_docs_agent) | Google Gemini API key for semantic search |
-| `CONTEXT7_API_KEY` | No | Context7 API key for higher rate limits |
-| `FETCH_DOCS_LOW_TOKENS` | No | Custom token count for "low" depth (default: 5000) |
-| `FETCH_DOCS_MEDIUM_TOKENS` | No | Custom token count for "medium" depth (default: 15000) |
-| `FETCH_DOCS_HIGH_TOKENS` | No | Custom token count for "high" depth (default: 50000) |
-
----
 
 ## Tools
 
+| Tool | What it does |
+|------|--------------|
+| [`fetch_docs`](#fetch_docs) | Get library/framework documentation from Context7 |
+| [`fetch_site`](#fetch_site) | Scrape any webpage → clean markdown |
+| [`ask_docs_agent`](#ask_docs_agent) | Semantic Q&A over your documentation |
+
+---
+
 ### `fetch_docs`
 
-Fetch library documentation from Context7 with smart matching.
-
-**When to use:** You need API docs, code examples, or guides for a library/framework.
-
-#### Parameters
-
-| Param | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `target` | string | **Yes** | - | Library name to search for. Examples: `"react"`, `"next.js"`, `"pytorch"` |
-| `tag` | string | No | None | Tag to filter/rerank results. Examples: `"routing"`, `"hooks"`, `"authentication"` |
-| `depth` | `"low"` \| `"medium"` \| `"high"` | No | `"medium"` | Token budget: low (~5k), medium (~15k), high (~50k) |
-| `version` | string | No | None | Specific version tag. Examples: `"v15.1.8"`, `"v14.3.0-canary.87"` |
-| `browse_index` | boolean | No | `false` | If true, returns list of matching libraries instead of docs |
-
-#### Examples
+Fetch library/framework docs from Context7 with smart name matching.
 
 ```python
-# Simple fetch
-fetch_docs(target="react")
-
-# With tag filter
-fetch_docs(target="next.js", tag="routing")
-
-# Deep dive
-fetch_docs(target="pytorch", depth="high")
-
-# Specific version
-fetch_docs(target="next.js", version="v15.1.8")
-
-# Browse available libraries
-fetch_docs(target="mongo", browse_index=true)
+async def fetch_docs(
+    *,
+    target: str,
+    tag: Optional[str] = None,
+    depth: Literal["low", "medium", "high"] = "medium",
+    version: Optional[str] = None,
+    browse_index: bool = False,
+) -> str:
+    ...
 ```
+
+<details>
+<summary>Parameters</summary>
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `target` | string | required | Library or framework name guess (1–200 chars). |
+| `tag` | string | - | Optional topic filter within that library (≤200 chars). |
+| `depth` | `"low"` \| `"medium"` \| `"high"` | `"medium"` | Doc length preset: 'low'/'medium'/'high' (~5k/15k/50k tokens). |
+| `version` | string | - | Optional version tag string (≤50 chars). |
+| `browse_index` | boolean | `false` | If true, return matching libraries instead of docs. |
+
+</details>
+
+---
+
+### `fetch_site`
+
+Scrape websites and convert to clean markdown using Mozilla Readability.
+
+```python
+async def fetch_site(
+    *,
+    url: Union[str, List[str]],
+    images: bool = False,
+    refresh: bool = False,
+) -> str:
+    ...
+```
+
+Content saves to `./context/{title}/CONTENT.md` with YAML frontmatter.
+
+<details>
+<summary>Parameters</summary>
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `url` | string \| string[] | required | Single URL string or list of 1–10 URLs to fetch. |
+| `images` | boolean | `false` | If true, fetch and store images alongside markdown. |
+| `refresh` | boolean | `false` | If true, bypass cache and re-fetch from origin. |
+
+</details>
 
 ---
 
 ### `ask_docs_agent`
 
-Semantic search across your documentation using AI-powered understanding.
-
-**When to use:** You have complex conceptual questions about documented topics, or need synthesized answers from multiple sources.
-
-#### Parameters
-
-| Param | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `query` | string | **Yes** | - | Natural language search query (5-500 chars) |
-| `target` | string | **Yes** | - | Documentation target to search. Examples: `"openai"`, `"unstructured"` |
-| `top_k` | integer | No | `3` | Number of relevant results (1-20) |
-| `include_chunks` | boolean | No | `false` | Include document excerpts in response |
-| `format` | `"markdown"` \| `"json"` | No | `"markdown"` | Response format |
-| `metadata_filter` | string | No | None | Filter using List Filter syntax |
-
-#### Examples
+AI-powered semantic search over documentation. Requires `GEMINI_API_KEY`.
 
 ```python
-# Simple search
-ask_docs_agent(target="openai", query="How does function calling work?")
-
-# With more results
-ask_docs_agent(target="unstructured", query="PDF parsing options", top_k=5)
-
-# Include source excerpts
-ask_docs_agent(target="modelcontextprotocol", query="tool annotations", include_chunks=true)
+async def ask_docs_agent(
+    *,
+    query: str,
+    target: str,
+    top_k: int = 3,
+    include_chunks: bool = False,
+    format: Literal["markdown", "json"] = "markdown",
+    metadata_filter: Optional[str] = None,
+) -> str:
+    ...
 ```
+
+Typical calls only set `target`, `query`, and sometimes `top_k` or `include_chunks`; `format` and `metadata_filter` are advanced knobs.
+
+<details>
+<summary>Parameters</summary>
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `query` | string | required | Question to answer over this documentation (5–500 chars). |
+| `target` | string | required | Docs store / target name to search (1–100 chars). |
+| `top_k` | int | `3` | Number of relevant chunks to retrieve (1–20). |
+| `include_chunks` | boolean | `false` | If true, include chunk previews; false returns answer + sources only. |
+| `format` | `"markdown"` \| `"json"` | `"markdown"` | Response format; defaults to 'markdown'. Use 'json' only when you need structured parsing. |
+| `metadata_filter` | string | - | Optional List Filter string to limit which files are searched; leave empty unless you know the store's metadata schema. |
+
+</details>
 
 ---
 
-## Running the Server
+## Configuration
+
+<details>
+<summary>Environment Variables</summary>
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GEMINI_API_KEY` | For `ask_docs_agent` | [Get one here](https://aistudio.google.com/apikey) |
+| `CONTEXT7_API_KEY` | No | Higher rate limits for `fetch_docs` |
+| `FETCH_SITE_CONTENT_DIR` | No | Storage directory (default: `./context`) |
+
+</details>
+
+## Testing
 
 ```bash
-python server.py
-```
-
-## Running Tests
-
-```bash
-# Test fetch_docs
-python3 test_fetch_docs.py
-
-# Test ask_docs_agent
-python3 test_ask_docs_agent.py
+# Typecheck / compile the server
+npm run build
 ```
