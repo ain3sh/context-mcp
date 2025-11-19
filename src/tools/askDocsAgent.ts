@@ -13,7 +13,7 @@ export interface AskDocsAgentParams {
   metadata_filter?: string;
 }
 
-interface StoreInfo {
+export interface StoreInfo {
   name: string;
   displayName: string;
   createTime?: string;
@@ -70,6 +70,17 @@ async function getStores(
   }
   storeCache = await fetchStores(client);
   return storeCache;
+}
+
+/**
+ * Get available documentation stores for MCP resources.
+ * Returns a list of store info objects with display names and metadata.
+ */
+export async function getAvailableStores(
+  client: GoogleGenAI,
+): Promise<StoreInfo[]> {
+  const cache = await getStores(client);
+  return cache.storeList;
 }
 
 function formatAskMarkdown(

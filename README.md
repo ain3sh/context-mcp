@@ -5,10 +5,11 @@ Documentation tools for AI agents — fetch library docs, search semantically, s
 ## Features
 
 - 📚 **Library Docs** - Instant access to 1000+ libraries via Context7 API
-- 🔍 **Semantic Search** - Natural language Q&A over documentation stores
+- 🔍 **Semantic Search** - Natural language Q&A over documentation targets
 - 🌐 **Web Scraping** - Clean markdown extraction from any website
 - 💾 **Smart Caching** - Automatic deduplication and content organization
 - ⚡ **Token Efficient** - Optimized responses to avoid context bloat
+- 🎯 **Resource Discovery** - MCP resources expose available targets for agents
 
 ## Quick Start
 
@@ -226,6 +227,20 @@ ask_docs_agent({
 | `format` | `"markdown"` \| `"json"` | `"markdown"` | Response format |
 | `metadata_filter` | string | - | Advanced: List Filter syntax for file filtering |
 
+#### Discovering Available Targets
+
+Query the `docs://targets` MCP resource to see what's available:
+```json
+{
+  "targets": [
+    { "target": "my-api-docs", "id": "...", "createTime": "...", "updateTime": "..." }
+  ],
+  "total": 1
+}
+```
+
+Use `docs://targets/{name}` for details on a specific target.
+
 #### Response Examples
 
 **Default (markdown, no chunks)**: ~500-1000 tokens
@@ -303,9 +318,9 @@ This server is optimized to minimize context usage:
 - Try `refresh: true` to bypass cache
 - Check if the site requires authentication
 
-### ask_docs_agent: "Store not found"
-- Verify the store name matches exactly
-- Ensure the store exists in your Gemini account
+### ask_docs_agent: "Target not found"
+- Query `docs://targets` resource to see available targets
+- Verify the target name matches exactly
 - Check that `GEMINI_API_KEY` is set correctly
 
 ### ask_docs_agent: Rate limits

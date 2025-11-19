@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { GoogleGenAI } from "@google/genai";
 import { fetchDocs as fetchDocsTool } from "./tools/fetchDocs.js";
 import { fetchSite as fetchSiteTool } from "./tools/fetchSite.js";
-import { askDocsAgent as askDocsAgentTool, AskDocsAgentParams } from "./tools/askDocsAgent.js";
+import { askDocsAgent as askDocsAgentTool, AskDocsAgentParams, getAvailableStores, StoreInfo } from "./tools/askDocsAgent.js";
 
 // ---------------------------------------------------------------------------
 // Types & Schemas
@@ -232,6 +232,130 @@ async function main(): Promise<void> {
         const result = await askDocsAgentTool(geminiClient!, params);
         const isError = result.includes("Error:") || result.startsWith("Error ");
         return { content: [{ type: "text", text: result }], isError };
+      },
+    );
+
+    // Register MCP resources for discovering available documentation targets
+    
+    // Static resource: List all available documentation targets
+    server.registerResource(
+      "docs-targets-list",
+      "docs://targets",
+      {
+        title: "Available Documentation Targets",
+        description: "List of all available documentation targets that can be queried with ask_docs_agent. Use this to discover valid target names.",
+        mimeType: "application/json",
+      },
+      async (uri) => {
+        try {
+          const stores = await getAvailableStores(geminiClient!);
+          const targetList = stores.map((store: StoreInfo) => ({
+            target: store.displayName,
+            id: store.name,
+            createTime: store.createTime,
+            updateTime: store.updateTime,
+          }));
+          
+          return {
+            contents: [
+              {
+                uri: uri.href,
+                mimeType: "application/json",
+                text: JSON.stringify({
+                  description: "Available documentation targets for ask_docs_agent tool",
+                  usage: "Use the 'target' field value as the 'target' parameter in ask_docs_agent",
+                  targets: targetList,
+                  total: targetList.length,
+                }, null, 2),
+              },
+            ],
+          };
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          return {
+            contents: [
+              {
+                uri: uri.href,
+                mimeType: "application/json",
+                text: JSON.stringify({
+                  error: "Failed to fetch documentation targets",
+                  message: errorMessage,
+                  suggestion: "Ensure GEMINI_API_KEY is set and valid",
+                }, null, 2),
+              },
+            ],
+          };
+        }
+      },
+    );
+
+    // Dynamic resource template: Get details about a specific target
+    server.registerResource(
+      "docs-target-details",
+      new ResourceTemplate("docs://targets/{target}", { list: undefined }),
+      {
+        title: "Documentation Target Details",
+        description: "Get details about a specific documentation target by name",
+        mimeType: "application/json",
+      },
+      async (uri, { target }) => {
+        try {
+          const stores = await getAvailableStores(geminiClient!);
+          const store = stores.find((s: StoreInfo) => s.displayName === target);
+          
+          if (!store) {
+            const available = stores.map((s: StoreInfo) => s.displayName).sort();
+            return {
+              contents: [
+                {
+                  uri: uri.href,
+                  mimeType: "application/json",
+                  text: JSON.stringify({
+                    error: `Target '${target}' not found`,
+                    availableTargets: available,
+                    suggestion: "Use one of the available target names listed above",
+                  }, null, 2),
+                },
+              ],
+            };
+          }
+          
+          return {
+            contents: [
+              {
+                uri: uri.href,
+                mimeType: "application/json",
+                text: JSON.stringify({
+                  target: store.displayName,
+                  id: store.name,
+                  createTime: store.createTime,
+                  updateTime: store.updateTime,
+                  usage: {
+                    tool: "ask_docs_agent",
+                    example: {
+                      query: "How do I get started?",
+                      target: store.displayName,
+                    },
+                  },
+                }, null, 2),
+              },
+            ],
+          };
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          return {
+            contents: [
+              {
+                uri: uri.href,
+                mimeType: "application/json",
+                text: JSON.stringify({
+                  error: "Failed to fetch target details",
+                  message: errorMessage,
+                }, null, 2),
+              },
+            ],
+          };
+        }
       },
     );
   }
