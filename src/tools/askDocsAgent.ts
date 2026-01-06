@@ -6,7 +6,7 @@ const STORE_CACHE_TTL = 300_000;
 
 export interface AskDocsAgentParams {
   query: string;
-  target: string;
+  reference: string;
   top_k: number;
   include_chunks: boolean;
   format: "markdown" | "json";
@@ -30,7 +30,7 @@ interface StoreCache {
 let storeCache: StoreCache | null = null;
 
 async function fetchStores(client: GoogleGenAI): Promise<StoreCache> {
-  const pager = await client.fileSearchStores.list({ config: { pageSize: 100 } });
+  const pager = await client.fileSearchStores.list({ config: { pageSize: 20 } });
 
   const storeMap = new Map<string, string>();
   const storeList: StoreInfo[] = [];
@@ -67,7 +67,7 @@ async function getStores(
 }
 
 /**
- * Get available documentation stores for MCP resources.
+ * Get available documentation references.
  * Returns a list of store info objects with display names and metadata.
  */
 export async function getAvailableStores(
@@ -84,7 +84,7 @@ function formatAskMarkdown(
 ): string {
   const CHUNK_CHAR_LIMIT = 500;
   const output: string[] = [];
-  output.push(`# Search Results: ${params.target}\n\n`);
+  output.push(`# Search Results: ${params.reference}\n\n`);
   output.push(`**Query**: ${params.query}\n\n`);
   output.push(`**Response**:\n${mainResponse}\n\n`);
 
@@ -166,7 +166,7 @@ function formatAskJson(
 
   const result = {
     query: params.query,
-    target: params.target,
+    reference: params.reference,
     response: mainResponse,
     sources: Array.from(sources).sort(),
     ...(params.include_chunks && { chunks: chunkData }),
@@ -266,10 +266,10 @@ export async function askDocsAgent(
 ): Promise<string> {
   try {
     const cache = await getStores(client, params.force_refresh === true);
-    if (!cache.stores.has(params.target)) {
+    if (!cache.stores.has(params.reference)) {
       const available = Array.from(cache.stores.keys()).sort();
       return (
-        `Error: Documentation reference '${params.target}' not found.\n\n` +
+        `Error: Documentation reference '${params.reference}' not found.\n\n` +
         `Available references:\n` +
         available.map((s) => `  - ${s}`).join("\n") +
         "\n\nNote: References are automatically synced from repository directories. " +
@@ -278,7 +278,7 @@ export async function askDocsAgent(
       );
     }
 
-    const storeName = cache.stores.get(params.target)!;
+    const storeName = cache.stores.get(params.reference)!;
     const response = await client.models.generateContent({
       model: GEMINI_MODEL,
       contents: params.query,
@@ -302,7 +302,7 @@ export async function askDocsAgent(
         return JSON.stringify(
           {
             query: params.query,
-            target: params.target,
+            reference: params.reference,
             response: "No results found",
             sources: [],
             suggestion:
@@ -314,7 +314,7 @@ export async function askDocsAgent(
       }
 
       return (
-        `No results found in reference '${params.target}' for query: ${params.query}\n\n` +
+        `No results found in reference '${params.reference}' for query: ${params.query}\n\n` +
         "**Why this happened:** The query may not match any content in this documentation reference.\n\n" +
         "**Try:**\n" +
         "  - Rephrasing your question with different keywords\n" +

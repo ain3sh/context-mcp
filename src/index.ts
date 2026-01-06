@@ -77,11 +77,18 @@ const AskDocsAgentInputSchema = z
       .min(5, "Query must be at least 5 characters")
       .max(500, "Query must not exceed 500 characters")
       .describe("Question to answer over this documentation (5–500 chars)."),
+    reference: z
+      .string()
+      .min(1)
+      .max(100, "Reference must not exceed 100 characters")
+      .optional()
+      .describe("Documentation reference to search (e.g. 'modelcontextprotocol/python-sdk')."),
     target: z
       .string()
-      .min(1, "Target is required")
-      .max(100, "Target must not exceed 100 characters")
-      .describe("Docs store / target name to search (1–100 chars)."),
+      .min(1)
+      .max(100)
+      .optional()
+      .describe("Alias for 'reference'."),
     top_k: z
       .number()
       .int("top_k must be an integer")
@@ -108,7 +115,11 @@ const AskDocsAgentInputSchema = z
         "Optional List Filter string to limit which files are searched; leave empty unless you know the store's metadata schema.",
       ),
   })
-  .strict();
+  .strict()
+  .refine((v) => Boolean(v.reference ?? v.target), {
+    message: "Missing required field 'reference'.",
+    path: ["reference"],
+  });
 
 type AskDocsAgentInput = z.infer<typeof AskDocsAgentInputSchema>;
 
@@ -221,9 +232,21 @@ async function main(): Promise<void> {
         },
       },
       async (args, _extra) => {
+        const reference = args.reference ?? args.target;
+        if (!reference) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "Error: Missing required field 'reference'.",
+              },
+            ],
+            isError: true,
+          };
+        }
         const params: AskDocsAgentParams = {
           query: args.query,
-          target: args.target,
+          reference,
           include_chunks: args.include_chunks ?? false,
           top_k: args.top_k ?? 3,
           format: (args.format ?? ResponseFormat.MARKDOWN) as "markdown" | "json",
@@ -243,14 +266,14 @@ async function main(): Promise<void> {
       "docs://targets",
       {
         title: "Available Documentation Targets",
-        description: "List of all available documentation targets that can be queried with ask_docs_agent. Use this to discover valid target names.",
+        description: "List of all available documentation references that can be queried with ask_docs_agent.",
         mimeType: "application/json",
       },
       async (uri) => {
         try {
           const stores = await getAvailableStores(geminiClient!);
           const targetList = stores.map((store: StoreInfo) => ({
-            target: store.displayName,
+            reference: store.displayName,
             id: store.name,
             createTime: store.createTime,
             updateTime: store.updateTime,
@@ -262,9 +285,9 @@ async function main(): Promise<void> {
                 uri: uri.href,
                 mimeType: "application/json",
                 text: JSON.stringify({
-                  description: "Available documentation targets for ask_docs_agent tool",
-                  usage: "Use the 'target' field value as the 'target' parameter in ask_docs_agent",
-                  targets: targetList,
+                  description: "Available documentation references for ask_docs_agent tool",
+                  usage: "Use the 'reference' field value as the 'reference' parameter in ask_docs_agent",
+                  references: targetList,
                   total: targetList.length,
                 }, null, 2),
               },
@@ -312,7 +335,7 @@ async function main(): Promise<void> {
                   mimeType: "application/json",
                   text: JSON.stringify({
                     error: `Target '${target}' not found`,
-                    availableTargets: available,
+                    availableReferences: available,
                     suggestion: "Use one of the available target names listed above",
                   }, null, 2),
                 },
@@ -327,6 +350,7 @@ async function main(): Promise<void> {
                 mimeType: "application/json",
                 text: JSON.stringify({
                   target: store.displayName,
+                  reference: store.displayName,
                   id: store.name,
                   createTime: store.createTime,
                   updateTime: store.updateTime,
@@ -334,7 +358,7 @@ async function main(): Promise<void> {
                     tool: "ask_docs_agent",
                     example: {
                       query: "How do I get started?",
-                      target: store.displayName,
+                      reference: store.displayName,
                     },
                   },
                 }, null, 2),

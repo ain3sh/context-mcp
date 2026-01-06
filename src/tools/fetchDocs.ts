@@ -256,15 +256,20 @@ function buildMatchResult(libraries: LibraryInfo[], target: string): MatchResult
   }
 
   const normalizedTarget = target.toLowerCase().trim();
+  const normalizedTargetNoSlash = normalizedTarget.replace(/^\/+/, "");
 
   const byTitle = new Map<string, LibraryInfo>();
   const byRepo = new Map<string, LibraryInfo>();
+  const byId = new Map<string, LibraryInfo>();
+  const byIdNoSlash = new Map<string, LibraryInfo>();
   for (const lib of libraries) {
     byTitle.set(lib.title.toLowerCase(), lib);
     const repo = lib.id.includes("/")
       ? lib.id.split("/").pop()!.toLowerCase()
       : lib.id.toLowerCase();
     byRepo.set(repo, lib);
+    byId.set(lib.id.toLowerCase(), lib);
+    byIdNoSlash.set(lib.id.toLowerCase().replace(/^\/+/, ""), lib);
   }
 
   if (byTitle.has(normalizedTarget)) {
@@ -278,6 +283,24 @@ function buildMatchResult(libraries: LibraryInfo[], target: string): MatchResult
   if (byRepo.has(normalizedTarget)) {
     return {
       library: byRepo.get(normalizedTarget)!,
+      score: 100,
+      tier: "exact",
+      candidates: [],
+    };
+  }
+
+  if (byId.has(normalizedTarget)) {
+    return {
+      library: byId.get(normalizedTarget)!,
+      score: 100,
+      tier: "exact",
+      candidates: [],
+    };
+  }
+
+  if (byIdNoSlash.has(normalizedTargetNoSlash)) {
+    return {
+      library: byIdNoSlash.get(normalizedTargetNoSlash)!,
       score: 100,
       tier: "exact",
       candidates: [],
