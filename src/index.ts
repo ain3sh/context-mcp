@@ -20,25 +20,25 @@ const FetchDocsInputSchema = z
       .string()
       .min(1)
       .max(200)
-      .describe("Library or framework name guess (1–200 chars)."),
+      .describe("Library or framework name (e.g. 'react', 'langchain', 'express')."),
     tag: z
       .string()
       .max(200)
       .optional()
-      .describe("Optional topic filter within that library (≤200 chars)."),
+      .describe("Optional topic filter within that library (e.g. 'hooks', 'routing')."),
     depth: z
       .enum(["low", "medium", "high"] as const)
       .default("medium")
-      .describe("Doc length preset: 'low'/'medium'/'high' (~5k/15k/50k tokens)."),
+      .describe("Optional token budget: 'low' (~5k), 'medium' (~15k), 'high' (~50k)."),
     version: z
       .string()
       .max(50)
       .optional()
-      .describe("Optional version tag string (≤50 chars)."),
+      .describe("Optional specific version (e.g. 'v18.2.0', '3.x')."),
     browse_index: z
       .boolean()
       .default(false)
-      .describe("If true, return matching libraries instead of docs."),
+      .describe("Optional; if true, list matching libraries instead of fetching docs."),
   })
   .strict();
 
@@ -51,15 +51,15 @@ const FetchSiteInputSchema = z
         z.string().url(),
         z.array(z.string().url()).min(1).max(10),
       ])
-      .describe("Single URL string or list of 1–10 URLs to fetch."),
+      .describe("URL or array of URLs (max 10) to fetch."),
     images: z
       .boolean()
       .default(false)
-      .describe("If true, fetch and store images alongside markdown."),
+      .describe("Optional; include images in output."),
     refresh: z
       .boolean()
       .default(false)
-      .describe("If true, bypass cache and re-fetch from origin."),
+      .describe("Optional; bypass cache and re-fetch."),
   })
   .strict();
 
@@ -75,11 +75,15 @@ const AskDocsAgentInputSchema = z.object({
     .string()
     .min(1)
     .max(100)
-    .describe("Documentation reference to search (e.g. 'modelcontextprotocol/python-sdk')."),
+    .describe("Documentation store name (see docs://targets resource)."),
+  include_sources: z
+    .boolean()
+    .default(false)
+    .describe("Optional; include source chunk previews in response."),
   format: z
     .enum(["markdown", "json"])
     .default("markdown")
-    .describe("Response format; defaults to 'markdown'. Use 'json' only when you need structured parsing."),
+    .describe("Optional; response format: 'markdown' or 'json'."),
 });
 
 // ---------------------------------------------------------------------------
@@ -102,22 +106,7 @@ async function main(): Promise<void> {
     "fetch_docs",
     {
       title: "Fetch Library Documentation",
-      description:
-        "Fetch library documentation from Context7 with smart matching.\n\n" +
-        "**When to use:** You need API docs, code examples, or guides for a library/framework.\n\n" +
-        "**Parameters:**\n" +
-        "- target: Library name (required) - e.g., \"react\", \"next.js\", \"pytorch\"\n" +
-        "- tag: Topic filter - e.g., \"routing\", \"hooks\"\n" +
-        "- depth: Token budget - \"low\" (5k), \"medium\" (15k), \"high\" (50k)\n" +
-        "- version: Specific version - e.g., \"v15.1.8\"\n" +
-        "- browse_index: Set true to list matching libraries\n\n" +
-        "**Examples:**\n" +
-        "| Use Case | Call |\n" +
-        "|----------|------|\n" +
-        "| Basic | { \"target\": \"react\" } |\n" +
-        "| With topic | { \"target\": \"next.js\", \"tag\": \"routing\" } |\n" +
-        "| Deep dive | { \"target\": \"pytorch\", \"depth\": \"high\" } |\n" +
-        "| Browse | { \"target\": \"mongo\", \"browse_index\": true } |",
+      description: "Fetch library documentation from Context7 with smart matching.",
       inputSchema: FetchDocsInputSchema,
       annotations: {
         readOnlyHint: true,
@@ -142,22 +131,7 @@ async function main(): Promise<void> {
     "fetch_site",
     {
       title: "Fetch Website Content",
-      description:
-        "Fetch web content and convert to clean, readable markdown.\n\n" +
-        "**When to use:** You need clean content from any website - blog posts, articles, documentation.\n\n" +
-        "**Parameters:**\n" +
-        "- url: URL(s) to fetch - single string or array up to 10\n" +
-        "- images: Enable image processing (default: false)\n" +
-        "- refresh: Bypass cache (default: false)\n\n" +
-        "**Examples:**\n" +
-        "| Use Case | Call |\n" +
-        "|----------|------|\n" +
-        "| Basic | { \"url\": \"https://react.dev/learn\" } |\n" +
-        "| With images | { \"url\": \"https://example.com\", \"images\": true } |\n" +
-        "| Batch | { \"url\": [\"https://a.com\", \"https://b.com\"] } |\n" +
-        "| Refresh | { \"url\": \"https://example.com\", \"refresh\": true } |\n\n" +
-        "**Output:** Content saves to `./context/{title}/CONTENT.md` with YAML frontmatter.\n\n" +
-        "**Note:** Respects robots.txt. Some sites may block automated fetching.",
+      description: "Fetch web content as clean markdown. Output saves to `./context/{title}/CONTENT.md`.",
       inputSchema: FetchSiteInputSchema,
       annotations: {
         readOnlyHint: true,
@@ -182,8 +156,8 @@ async function main(): Promise<void> {
       {
         title: "Ask Documentation Agent",
         description:
-          "Semantic Q&A over indexed documentation with source citations. " +
-          "Requires 'query' and 'reference' (doc store name - see docs://targets resource).",
+          "LLM agent for documentation Q&A with source-grounded answers. " +
+          "Use docs://targets resource to list available stores.",
         inputSchema: AskDocsAgentInputSchema,
         annotations: {
           readOnlyHint: true,
@@ -194,7 +168,7 @@ async function main(): Promise<void> {
         const params: AskDocsAgentParams = {
           query: args.query,
           reference: args.reference,
-          include_chunks: false,
+          include_chunks: args.include_sources ?? false,
           top_k: 5,
           format: (args.format ?? "markdown") as "markdown" | "json",
         };
