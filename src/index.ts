@@ -12,11 +12,6 @@ import { askDocsAgent as askDocsAgentTool, AskDocsAgentParams, getAvailableStore
 // Types & Schemas
 // ---------------------------------------------------------------------------
 
-enum ResponseFormat {
-  MARKDOWN = "markdown",
-  JSON = "json",
-}
-
 type Depth = "low" | "medium" | "high";
 
 const FetchDocsInputSchema = z
@@ -70,54 +65,22 @@ const FetchSiteInputSchema = z
 
 type FetchSiteInput = z.infer<typeof FetchSiteInputSchema>;
 
-const AskDocsAgentInputSchema = z
-  .object({
-    query: z
-      .string()
-      .min(5, "Query must be at least 5 characters")
-      .max(500, "Query must not exceed 500 characters")
-      .describe("Question to answer over this documentation (5–500 chars)."),
-    reference: z
-      .string()
-      .min(1)
-      .max(100, "Reference must not exceed 100 characters")
-      .optional()
-      .describe("Documentation reference to search (e.g. 'modelcontextprotocol/python-sdk')."),
-    target: z
-      .string()
-      .min(1)
-      .max(100)
-      .optional()
-      .describe("Alias for 'reference' (deprecated, use 'reference' instead)."),
-    top_k: z
-      .number()
-      .int("top_k must be an integer")
-      .min(1, "top_k must be at least 1")
-      .max(20, "top_k cannot exceed 20")
-      .default(3)
-      .describe("Number of relevant chunks to retrieve (1–20)."),
-    include_chunks: z
-      .boolean()
-      .default(false)
-      .describe(
-        "If true, include chunk previews; false returns answer + sources only.",
-      ),
-    format: z
-      .nativeEnum(ResponseFormat)
-      .default(ResponseFormat.MARKDOWN)
-      .describe(
-        "Response format; defaults to 'markdown'. Use 'json' only when you need structured parsing.",
-      ),
-    metadata_filter: z
-      .string()
-      .optional()
-      .describe(
-        "Optional List Filter string to limit which files are searched; leave empty unless you know the store's metadata schema.",
-      ),
-  })
-  .strict();
-
-type AskDocsAgentInput = z.infer<typeof AskDocsAgentInputSchema>;
+const AskDocsAgentInputSchema = z.object({
+  query: z
+    .string()
+    .min(5)
+    .max(500)
+    .describe("Question to answer over this documentation (5–500 chars)."),
+  reference: z
+    .string()
+    .min(1)
+    .max(100)
+    .describe("Documentation reference to search (e.g. 'modelcontextprotocol/python-sdk')."),
+  format: z
+    .enum(["markdown", "json"])
+    .default("markdown")
+    .describe("Response format; defaults to 'markdown'. Use 'json' only when you need structured parsing."),
+});
 
 // ---------------------------------------------------------------------------
 // Main MCP Server Setup
@@ -228,25 +191,12 @@ async function main(): Promise<void> {
         },
       },
       async (args, _extra) => {
-        const reference = args.reference ?? args.target;
-        if (!reference) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: "Error: Missing required field 'reference'.",
-              },
-            ],
-            isError: true,
-          };
-        }
         const params: AskDocsAgentParams = {
           query: args.query,
-          reference,
-          include_chunks: args.include_chunks ?? false,
-          top_k: args.top_k ?? 3,
-          format: (args.format ?? ResponseFormat.MARKDOWN) as "markdown" | "json",
-          metadata_filter: args.metadata_filter,
+          reference: args.reference,
+          include_chunks: false,
+          top_k: 5,
+          format: (args.format ?? "markdown") as "markdown" | "json",
         };
         const result = await askDocsAgentTool(geminiClient!, params);
         const isError = result.includes("Error:") || result.startsWith("Error ");
