@@ -88,7 +88,7 @@ const AskDocsAgentInputSchema = z
       .min(1)
       .max(100)
       .optional()
-      .describe("Alias for 'reference'."),
+      .describe("Alias for 'reference' (deprecated, use 'reference' instead)."),
     top_k: z
       .number()
       .int("top_k must be an integer")
@@ -115,11 +115,7 @@ const AskDocsAgentInputSchema = z
         "Optional List Filter string to limit which files are searched; leave empty unless you know the store's metadata schema.",
       ),
   })
-  .strict()
-  .refine((v) => Boolean(v.reference ?? v.target), {
-    message: "Missing required field 'reference'.",
-    path: ["reference"],
-  });
+  .strict();
 
 type AskDocsAgentInput = z.infer<typeof AskDocsAgentInputSchema>;
 
@@ -223,8 +219,8 @@ async function main(): Promise<void> {
       {
         title: "Ask Documentation Agent",
         description:
-          "Semantic Q&A over documentation using Gemini File Search.\n\n" +
-          "Uses pre-built stores of documentation and returns grounded answers with sources.",
+          "Semantic Q&A over indexed documentation with source citations. " +
+          "Requires 'query' and 'reference' (doc store name - see docs://targets resource).",
         inputSchema: AskDocsAgentInputSchema,
         annotations: {
           readOnlyHint: true,
