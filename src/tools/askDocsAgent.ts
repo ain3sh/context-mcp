@@ -11,6 +11,7 @@ export interface AskDocsAgentParams {
   include_chunks: boolean;
   format: "markdown" | "json";
   metadata_filter?: string;
+  force_refresh?: boolean;
 }
 
 export interface StoreInfo {
@@ -29,19 +30,12 @@ interface StoreCache {
 let storeCache: StoreCache | null = null;
 
 async function fetchStores(client: GoogleGenAI): Promise<StoreCache> {
-  const pager = await client.fileSearchStores.list({ config: { pageSize: 20 } });
-  const stores: any[] = [];
-  let page = pager.page;
-  while (true) {
-    stores.push(...Array.from(page));
-    if (!pager.hasNextPage()) break;
-    page = await pager.nextPage();
-  }
+  const pager = await client.fileSearchStores.list({ config: { pageSize: 100 } });
 
   const storeMap = new Map<string, string>();
   const storeList: StoreInfo[] = [];
 
-  for (const store of stores) {
+  for await (const store of pager) {
     if (store.displayName && store.name) {
       storeMap.set(store.displayName, store.name);
       storeList.push({
@@ -271,7 +265,7 @@ export async function askDocsAgent(
   params: AskDocsAgentParams,
 ): Promise<string> {
   try {
-    const cache = await getStores(client);
+    const cache = await getStores(client, params.force_refresh === true);
     if (!cache.stores.has(params.target)) {
       const available = Array.from(cache.stores.keys()).sort();
       return (
