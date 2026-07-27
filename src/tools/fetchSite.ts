@@ -317,7 +317,7 @@ function extractContent(html: string, url: string): ExtractedContent {
   const reader = new Readability(dom.window.document);
   const article = reader.parse();
   const turndown = new TurndownService();
-  const markdown = article ? turndown.turndown(article.content) : turndown.turndown(html);
+  const markdown = turndown.turndown(article?.content ?? html);
 
   const images: ImageInfo[] = [];
   const doc = dom.window.document;

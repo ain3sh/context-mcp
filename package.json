@@ -34,23 +34,26 @@
     "clean": "rm -rf dist"
   },
   "engines": {
-    "node": ">=18"
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   },
   "dependencies": {
-    "@google/genai": "^1.0.0",
-    "@modelcontextprotocol/sdk": "^1.6.1",
-    "@mozilla/readability": "^0.5.0",
-    "axios": "^1.7.9",
-    "jsdom": "^24.0.0",
-    "sharp": "^0.33.0",
-    "turndown": "^7.1.2",
-    "zod": "^3.23.8"
+    "@google/genai": "^2.13.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@mozilla/readability": "^0.6.0",
+    "axios": "^1.18.1",
+    "jsdom": "^30.0.0",
+    "sharp": "^0.35.3",
+    "turndown": "^7.2.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/jsdom": "^21.1.6",
-    "@types/node": "^22.10.0",
-    "@types/turndown": "^5.0.4",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "@types/jsdom": "^28.0.3",
+    "@types/node": "^26.1.2",
+    "@types/turndown": "^5.0.6",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2"
+  },
+  "overrides": {
+    "gaxios": "7.3.0"
   }
 }
