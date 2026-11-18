@@ -15,14 +15,14 @@ Search code, browse repository wikis, find and read research papers, and fetch d
 npx -y github:ain3sh/context-mcp
 ```
 
-No installation required. Always uses the latest version.
+Requires a supported Node.js version on `PATH`. The GitHub package runs
+without npm install-time scripts.
 
 ### From Source
 ```bash
 git clone https://github.com/ain3sh/context-mcp.git
 cd context-mcp
 npm install
-npm run build
 npm start
 ```
 
@@ -204,10 +204,10 @@ This server is optimized to minimize context usage:
 - Check if you need a specific version
 
 ### MCP client doesn't show tools
-- Run `npm run build` to compile TypeScript
+- Check that your MCP client can find `node` on `PATH`.
 - Check MCP config JSON is valid
 - Review client logs (e.g., `~/Library/Logs/Claude/mcp*.log`)
-- Test the compiled server and its MCP contract with `npm test`
+- Test the launcher and MCP tools with `npm test`
 
 ## Development
 
@@ -228,7 +228,6 @@ npm test
 
 ### Quick Test
 ```bash
-npm run build
 npm start
 ```
 

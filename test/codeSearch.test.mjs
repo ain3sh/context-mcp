@@ -22,7 +22,7 @@ test("code_search over stdio", async t => {
   await writeFile(join(root, "source"), "workspace");
   await writeFile(join(sub, "source"), "uncommitted");
   const env = {
-    PATH: `${root}:/usr/bin:/bin`, HOME: root, TMPDIR: scratch,
+    PATH: `${root}:/usr/bin:/bin`, HOME: root, TMPDIR: scratch, TSX_DISABLE_CACHE: "1",
     GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_ALLOW_PROTOCOL: "file",
     GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: `url.${pathToFileURL(remote).href}.insteadOf`,
     GIT_CONFIG_VALUE_0: url,
@@ -58,7 +58,7 @@ else {
 
   const client = new Client({ name: "test", version: "1" });
   await client.connect(new StdioClientTransport({
-    command: process.execPath, args: [fileURLToPath(new URL("../dist/index.js", import.meta.url))],
+    command: process.execPath, args: [fileURLToPath(new URL("../bin/context-mcp.mjs", import.meta.url))],
     cwd: root, env, stderr: "pipe",
   }));
   t.after(() => client.close());

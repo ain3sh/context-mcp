@@ -18,20 +18,19 @@
   ],
   "author": "ain3sh",
   "license": "MIT",
-  "main": "dist/index.js",
   "bin": {
-    "context-mcp": "dist/index.js"
+    "context-mcp": "bin/context-mcp.mjs"
   },
   "files": [
-    "dist",
+    "bin",
+    "src",
     "README.md"
   ],
   "scripts": {
-    "start": "node dist/index.js",
+    "start": "node bin/context-mcp.mjs",
     "dev": "tsx watch src/index.ts",
     "build": "npm run clean && tsc",
     "test": "npm run build && node --test test/*.test.mjs",
-    "prepare": "npm run build",
     "clean": "rm -rf dist"
   },
   "engines": {
@@ -42,6 +41,7 @@
     "axios": "^1.18.1",
     "ipaddr.js": "^2.2.0",
     "jsdom": "^30.0.0",
+    "tsx": "^4.23.1",
     "turndown": "^7.2.4",
     "zod": "^4.4.3"
   },
@@ -50,7 +50,6 @@
     "@types/node": "^26.1.2",
     "@types/turndown": "^5.0.6",
     "fast-check": "^4.0.0",
-    "tsx": "^4.23.1",
     "typescript": "^7.0.2"
   }
 }
