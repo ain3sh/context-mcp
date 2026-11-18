@@ -1,15 +1,12 @@
 # Context Tools MCP Server
 
-Documentation tools for AI agents — fetch library docs, search semantically, scrape websites cleanly.
+Search code, browse repository wikis, find and read research papers, and fetch documentation over MCP stdio.
 
 ## Features
 
 - 📚 **Library Docs** - Instant access to 1000+ libraries via Context7 API
-- 🔍 **Semantic Search** - Natural language Q&A over documentation targets
-- 🌐 **Web Scraping** - Clean markdown extraction from any website
-- 💾 **Smart Caching** - Automatic deduplication and content organization
+- 🔍 **Code and Research** - Repository wikis, code excerpts and scholarly sources
 - ⚡ **Token Efficient** - Optimized responses to avoid context bloat
-- 🎯 **Resource Discovery** - MCP resources expose available targets for agents
 
 ## Quick Start
 
@@ -39,10 +36,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "context-mcp": {
       "command": "npx",
-      "args": ["-y", "github:ain3sh/context-mcp"],
-      "env": {
-        "GEMINI_API_KEY": "your_api_key_here"
-      }
+      "args": ["-y", "github:ain3sh/context-mcp"]
     }
   }
 }
@@ -57,10 +51,7 @@ Create `.mcp.json` in your project root:
     "context-mcp": {
       "type": "stdio", 
       "command": "npx",
-      "args": ["-y", "github:ain3sh/context-mcp"],
-      "env": {
-        "GEMINI_API_KEY": "${GEMINI_API_KEY}"
-      }
+      "args": ["-y", "github:ain3sh/context-mcp"]
     }
   }
 }
@@ -70,9 +61,32 @@ Create `.mcp.json` in your project root:
 
 | Tool | Purpose | Token Usage |
 |------|---------|-------------|
+| [`code_search`](#code_search) | Find relevant code in a local directory or GitHub repository | Varies with excerpts |
 | [`fetch_docs`](#fetch_docs) | Get library/framework documentation | ~5k-50k tokens |
-| [`fetch_site`](#fetch_site) | Scrape webpage → clean markdown | ~2k-20k tokens |
-| [`ask_docs_agent`](#ask_docs_agent) | Semantic Q&A over documentation | ~500-3k tokens |
+| [`code_wiki`](#code_wiki) | Outline, read or ask about a public repo's DeepWiki | Depends on view |
+| [`paper_search`](#paper_search) | Find papers and readable references | Up to 20 hits |
+| [`paper_read`](#paper_read) | Read accessible source text or metadata | Full text paged |
+
+---
+
+### `code_search`
+
+Ask where or how something is implemented. The only required field is `query`.
+
+```js
+code_search({ query: "Where are tools registered?" })
+code_search({ query: "Where is cancellation handled?", reference: "../other-worktree" })
+code_search({ query: "How is stdio framed?", reference: "https://github.com/modelcontextprotocol/typescript-sdk" })
+code_search({ query: "How is login wired?", reference: "https://github.com/acme/widgets/tree/feature/auth" })
+```
+
+Omitting `reference` (or passing `"."`) searches the MCP server's launch directory, including uncommitted code. Local paths can be absolute or relative to that directory. `acme/widgets` is a local path, not a GitHub shorthand.
+
+A GitHub repo URL searches the default branch. Everything after `/tree/` names **one exact branch**, not a subdirectory, tag, or commit. A missing branch fails the search. GitHub searches shallow-clone into a temporary directory removed after each call, not a persistent cache. Private repositories use your Git credentials.
+
+Results contain `reference` (the resolved local directory or GitHub URL), `summary`, and `contexts` with repo- or directory-relative `file`, `lines` when available, and `content`. Both structured MCP output and readable text are returned.
+
+**Setup:** Put the [Morph CLI](https://docs.morphllm.com/cli) on the MCP server's `PATH` and configure a Morph profile or `MORPH_API_KEY`. GitHub search also requires Git. Search sends the query and selected code to Morph. The other tools do not need Morph. Searches have a two-minute deadline; if your MCP client uses a shorter tool timeout, raise it to allow longer searches to finish.
 
 ---
 
@@ -125,160 +139,40 @@ Context7 maintains pre-indexed documentation for 1000+ libraries. The tool uses 
 
 ---
 
-### `fetch_site`
+### `code_wiki`
 
-Extract clean, readable content from any website using Mozilla's Readability algorithm.
-
-#### Usage Examples
-```javascript
-// Single page extraction
-fetch_site({
-  url: "https://arxiv.org/abs/2301.00234"
-})
-
-// Include images
-fetch_site({
-  url: "https://example.com/tutorial",
-  images: true
-})
-
-// Batch fetch multiple URLs
-fetch_site({
-  url: [
-    "https://site.com/page1",
-    "https://site.com/page2",
-    "https://site.com/page3"
-  ]
-})
-
-// Force refresh cached content
-fetch_site({
-  url: "https://news.site/article",
-  refresh: true
-})
+```js
+const reference = "https://github.com/modelcontextprotocol/typescript-sdk"
+code_wiki({ reference })                               // outline
+code_wiki({ reference, query: "read" })                 // full wiki
+code_wiki({ reference, query: "How do transports work?" })
 ```
 
-#### Parameters
+Uses [Cognition's public DeepWiki](https://docs.devin.ai/work-with-devin/deepwiki-mcp). A question can take up to ten GitHub repo root URLs; browsing is for one repo. Use `code_search` for branch-specific questions.
 
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `url` | string \| string[] | required | URL(s) to fetch (max 10 for batch) |
-| `images` | boolean | `false` | Fetch and save images alongside content |
-| `refresh` | boolean | `false` | Bypass cache and re-fetch |
+### `paper_search`
 
-#### Output Structure
-
-Content is saved to disk and returned:
-```text
-./context/
-└── understanding-react-hooks/   # Auto-named from page title
-    ├── CONTENT.md               # Markdown with YAML frontmatter
-    └── images/
-        └── diagram.jpg
+```js
+paper_search({ query: "late interaction retrieval", year: "2020-2024", limit: 5 })
+paper_search({ query: "graph representation learning", source: "arxiv" })
 ```
 
-#### How It Works
-```text
-URL → Fetch → JSDOM → Readability → Turndown → Clean Markdown
-```
+Defaults to Semantic Scholar and Crossref. Restrict `source` to `semantic_scholar`, `crossref`, `arxiv`, `pubmed`, `biorxiv`, `medrxiv`, or `google_scholar`. PubMed and the two preprint collections use source-restricted Europe PMC searches. Google Scholar can block automated requests. `year` accepts `YYYY`, `YYYY-YYYY`, or `YYYY-`; `limit` is 1–20 (default 10) after deduplication.
 
-Uses the same extraction algorithm as Firefox Reader View to remove ads, navigation, and clutter.
+`papers` contains `{reference, title, authors, year?, abstract?, sources}`. Identical identifiers merge, similar titles do not. `failures` distinguishes a partial search from zero matches. If all selected indexes fail, the tool returns an error.
 
----
+### `paper_read`
 
-### `ask_docs_agent`
-
-AI-powered semantic search over documentation stores using Gemini File Search.
-
-**Requires**: `GEMINI_API_KEY` environment variable ([get one here](https://aistudio.google.com/apikey))
-
-#### Usage Examples
-```javascript
-// Simple question
-ask_docs_agent({
-  target: "context",
-  query: "How does chunking work in File Search?"
-})
-
-// Include source chunks for verification
-ask_docs_agent({
-  target: "my-docs",
-  query: "authentication setup",
-  include_chunks: true,
-  top_k: 5
-})
-
-// Get structured JSON response
-ask_docs_agent({
-  target: "api-docs",
-  query: "rate limits",
-  format: "json"
-})
-```
-
-#### Parameters
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `query` | string | required | Natural language question (5-500 chars) |
-| `target` | string | required | Documentation store name |
-| `top_k` | int | `3` | Number of relevant chunks to retrieve (1-20) |
-| `include_chunks` | boolean | `false` | Include chunk previews in response |
-| `format` | `"markdown"` \| `"json"` | `"markdown"` | Response format |
-| `metadata_filter` | string | - | Advanced: List Filter syntax for file filtering |
-
-#### Discovering Available Targets
-
-Query the `docs://targets` MCP resource to see what's available:
-```json
-{
-  "targets": [
-    { "target": "my-api-docs", "id": "...", "createTime": "...", "updateTime": "..." }
-  ],
-  "total": 1
+```js
+const page = await paper_read({ reference: "https://arxiv.org/abs/2004.12832v1" })
+if (page.next_cursor) {
+  await paper_read({ reference: page.reference, cursor: page.next_cursor })
 }
 ```
 
-Use `docs://targets/{name}` for details on a specific target.
+Pass a search hit's reference unchanged, a DOI, or a DOI/arXiv/PubMed/PMC/bioRxiv/medRxiv/Semantic Scholar paper URL. `reference`, `title`, and `source_url` identify the paper and evidence. `access` is `full_text`, `abstract_only`, or `metadata_only`; `markdown` is absent for metadata-only records. Network failures are errors, not evidence that a paper is paywalled.
 
-#### Response Examples
-
-**Default (markdown, no chunks)**: ~500-1000 tokens
-```markdown
-# Search Results: context
-
-**Query**: How does chunking work?
-
-**Response**:
-Files are automatically chunked when imported into a file search store...
-
----
-
-**Sources** (2 files):
-  - ai.google.dev_gemini-api_docs_file-search.md
-  - technical_spec.md
-```
-
-**With chunks**: ~2000-3000 tokens
-```markdown
-[... same as above, plus ...]
-
----
-
-## Retrieved Context Chunks
-
-### [1] ai.google.dev_gemini-api_docs_file-search.md
-
-Files are automatically chunked when imported...
-[truncated to 500 chars]
-```
-
-#### How It Works
-```text
-Query → Gemini File Search API → Semantic retrieval → LLM synthesis → Cited response
-```
-
-Queries pre-indexed Gemini FileSearchStores in the cloud. The stores must be created separately (e.g., via GitHub Actions workflow).
+The reader extracts identifiable public article bodies or PDFs, not arbitrary landing-page text. PDF extraction needs Poppler's `pdftotext` on the server's `PATH`. No PDF is saved. Full text over 16,000 UTF-16 code units is paged from a bounded, process-local snapshot. Reusing a cursor returns the same text without another fetch. After eviction or a server restart, start again without a cursor.
 
 ---
 
@@ -288,9 +182,8 @@ Queries pre-indexed Gemini FileSearchStores in the cloud. The stores must be cre
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GEMINI_API_KEY` | For `ask_docs_agent` | Your Gemini API key for semantic search |
+| `MORPH_API_KEY` | For `code_search`, unless a Morph profile is configured | Morph CLI authentication |
 | `CONTEXT7_API_KEY` | No | Higher rate limits for `fetch_docs` (optional) |
-| `FETCH_SITE_CONTENT_DIR` | No | Content storage directory (default: `./context`) |
 | `LOG_LEVEL` | No | `debug`, `info`, or `error` (default: `info`) |
 
 ### Token Efficiency
@@ -302,9 +195,6 @@ This server is optimized to minimize context usage:
 | `fetch_docs` with `depth="low"` | ~5k tokens | 10k |
 | `fetch_docs` with `depth="medium"` | ~15k tokens | 30k |
 | `fetch_docs` with `depth="high"` | ~50k tokens | 100k |
-| `fetch_site` (single page) | ~2-5k tokens | 20k |
-| `ask_docs_agent` (default) | ~500-1k tokens | 2k |
-| `ask_docs_agent` with chunks | ~2-3k tokens | 5k |
 
 ## Troubleshooting
 
@@ -313,26 +203,11 @@ This server is optimized to minimize context usage:
 - Use `browse_index: true` to see available libraries
 - Check if you need a specific version
 
-### fetch_site: "Failed to extract content"
-- Some sites block automated access
-- Try `refresh: true` to bypass cache
-- Check if the site requires authentication
-
-### ask_docs_agent: "Target not found"
-- Query `docs://targets` resource to see available targets
-- Verify the target name matches exactly
-- Check that `GEMINI_API_KEY` is set correctly
-
-### ask_docs_agent: Rate limits
-- Free tier: ~15 queries per minute
-- Wait 60 seconds between bursts
-- Consider upgrading Gemini API tier if needed
-
 ### MCP client doesn't show tools
 - Run `npm run build` to compile TypeScript
 - Check MCP config JSON is valid
 - Review client logs (e.g., `~/Library/Logs/Claude/mcp*.log`)
-- Test manually: `GEMINI_API_KEY=key npx -y github:ain3sh/context-mcp`
+- Test the compiled server and its MCP contract with `npm test`
 
 ## Development
 
@@ -347,27 +222,29 @@ npm run build
 # Run development mode (auto-reload)
 npm run dev
 
-# Test with environment
-GEMINI_API_KEY=your_key npm start
+# Run tests
+npm test
 ```
 
 ### Quick Test
 ```bash
 npm run build
-timeout 5s GEMINI_API_KEY=your_key npx .
+npm start
 ```
 
 ### Project Structure
-```text
-context-mcp/
-├── src/
-│   └── index.ts         # MCP server implementation
-├── dist/
-│   └── index.js         # Compiled output
-├── context/             # Cached content (git-ignored)
-├── package.json
-└── tsconfig.json
-```
+
+`src/index.ts` registers the tools and starts the stdio server. To change what an agent sees, open the tool file. For retrieval, look under `src/sources/` by subject: `code/` for repositories, `docs/` for library documentation, and `papers/` for scholarly work.
+
+| Tool | Description, arguments, and response | Source (under `src/sources/`) |
+| --- | --- | --- |
+| `code_search` | `src/tools/codeSearch.ts` | `code/morph.ts` (local search and GitHub checkouts) |
+| `code_wiki` | `src/tools/codeWiki.ts` | `code/deepwiki.ts` |
+| `fetch_docs` | `src/tools/fetchDocs.ts` | `docs/context7.ts` |
+| `paper_search` | `src/tools/paperSearch.ts` | `papers/search.ts` |
+| `paper_read` | `src/tools/paperRead.ts` (including bookmarks) | `papers/read.ts` |
+
+Both paper tools use `src/sources/papers/` for provider schemas, HTTP requests, and canonical paper references.
 
 ## License
 
