@@ -37,9 +37,9 @@ function response(body, status = 200, type = "application/json") {
   };
 }
 
-test("search credits only duplicate identifiers, returns partial failures, and passes references to read", async (t) => {
+test("default search interleaves arXiv and Crossref, credits matching IDs, and reports partial failures", async (t) => {
   const call = await harness(t);
-  let semanticStatus = 200,
+  let arxivStatus = 200,
     crossrefStatus = 200,
     hasAbstract = true;
   t.mock.method(axios, "get", async (href) => {
@@ -49,17 +49,18 @@ test("search credits only duplicate identifiers, returns partial failures, and p
       title: [shared.title],
       ...(hasAbstract && { abstract: "<p>Real abstract</p>" }),
     };
-    if (url.hostname === "api.semanticscholar.org")
+    if (url.hostname === "export.arxiv.org") {
+      assert.match(url.searchParams.get("search_query"), /ti:"same title"/);
       return response(
-        {
-          data: [
-            { ...shared, paperId: "a".repeat(40), externalIds: { DOI: doi }, authors: [] },
-            { ...shared, paperId: "b".repeat(40), authors: [] },
-          ],
-        },
-        semanticStatus,
+        `<feed>${["2004.12831", "2004.12832", "2004.12833"].map((id, i) => `<entry>
+          <id>https://arxiv.org/abs/${id}</id><title>${i ? shared.title : `Not the ${shared.title}`}</title><published>2020-04-27</published>
+        </entry>`).join("")}</feed>`,
+        arxivStatus,
       );
-    if (url.pathname === "/works") return response({ message: { items: [work] } }, crossrefStatus);
+    }
+    if (url.pathname === "/works") return response({
+      message: { items: [{ ...work, DOI: "10.48550/arxiv.2004.12832" }, work] },
+    }, crossrefStatus);
     if (url.pathname.startsWith("/works/")) return response({ message: work });
     if (url.hostname === "www.ebi.ac.uk") return response({ resultList: { result: [] } });
     if (url.hostname === "doi.org")
@@ -70,11 +71,15 @@ test("search credits only duplicate identifiers, returns partial failures, and p
   const first = (await search()).structuredContent;
   assert.deepEqual(first.failures, []);
   assert.deepEqual(
-    first.papers.map((p) => p.sources),
-    [["semantic_scholar", "crossref"], ["semantic_scholar"]],
+    first.papers.map((p) => [p.reference, p.sources]),
+    [
+      ["https://arxiv.org/abs/2004.12832", ["crossref", "arxiv"]],
+      [ref, ["crossref"]],
+      ["https://arxiv.org/abs/2004.12833", ["arxiv"]],
+      ["https://arxiv.org/abs/2004.12831", ["arxiv"]],
+    ],
   );
-  const reference = first.papers[0].reference;
-  assert.equal(reference, ref);
+  const reference = first.papers[1].reference;
   assert.deepEqual((await call("paper_read", { reference })).structuredContent, {
     reference,
     title: shared.title,
@@ -86,12 +91,12 @@ test("search credits only duplicate identifiers, returns partial failures, and p
   const bare = (await call("paper_read", { reference: doi })).structuredContent;
   assert.equal(bare.access, "metadata_only");
   assert.ok(!("markdown" in bare));
-  semanticStatus = 429;
+  arxivStatus = 503;
   const partial = (await search()).structuredContent;
   assert.deepEqual(partial.papers[0].sources, ["crossref"]);
   assert.deepEqual(
     partial.failures.map((f) => f.source),
-    ["semantic_scholar"],
+    ["arxiv"],
   );
   crossrefStatus = 503;
   assert.equal((await search()).isError, true);
@@ -232,35 +237,39 @@ test("wiki routing uses real MCP requests and preserves upstream Markdown", asyn
   assert.equal(calls.length, 3);
 });
 
-test("fetch_docs browses the Context7 index, then renders versioned JSON snippets as Markdown", async (t) => {
+test("fetch_docs honors explicit IDs and provider ranking and preserves versioned Markdown", async (t) => {
   const call = await harness(t);
   const base = "https://context7.com/api/v1";
   const id = "/example/widgets";
+  const otherId = "/example/widgets-archive";
+  const markdown = "### Install\n\nSource: https://example.org/docs\n\n```sh\nnpm i widgets\n```";
   const docRequests = [];
   t.mock.method(axios, "get", async (url, { params }) => {
     if (url === `${base}/search`) {
       if (params.query === "offline") {
         throw new axios.AxiosError("Unavailable", undefined, undefined, undefined, { status: 429 });
       }
-      const results = params.query === "absent" ? [] : [{ id, title: "Widgets" }];
+      const results = params.query === "absent" ? [] : [
+        { id, title: "Widgets" },
+        { id: otherId, title: "Widgets" },
+        { id: "/example/unrelated", title: otherId },
+      ];
       return { data: { results } };
     }
-    assert.equal(url, `${base}${id}/v2`);
-    docRequests.push(params);
-    return { data: { library: id, version: "v2", snippets: [{
-      codeTitle: "Install", codeLanguage: "sh", codeList: ["npm i widgets"],
-      codeId: "https://example.org/docs", pageTitle: "Guide", codeTokens: 12,
-    }] } };
+    docRequests.push({ url, params });
+    return { data: markdown };
   });
   const docs = (args) => call("fetch_docs", args);
   assert.match((await docs({ target: "Widgets", browse_index: true })).content[0].text, /\| \/example\/widgets \|/);
   assert.match((await docs({ target: "absent" })).content[0].text, /No Results Found/);
-  assert.match((await docs({ target: "unrelated" })).content[0].text, /Did you mean\?[\s\S]*\/example\/widgets/);
-  const result = await docs({ target: "Widges", version: "v2", tag: "install" });
-  assert.equal(result.isError, false);
-  assert.match(result.content[0].text, /```sh\nnpm i widgets\n```/);
-  assert.match(result.content[0].text, /\[Guide\]\(https:\/\/example.org\/docs\)/);
-  assert.deepEqual(docRequests, [{ type: "json", tokens: Number(process.env.FETCH_DOCS_MEDIUM_TOKENS ?? 15_000), topic: "install" }]);
+  assert.match((await docs({ target: "nosuchpackagezz" })).content[0].text, /Did you mean\?[\s\S]*\/example\/widgets/);
+  for (const target of ["Widgets", otherId, "Widges"]) {
+    const result = await docs({ target, version: "v2", tag: "install" });
+    assert.equal(result.isError, false);
+    assert.ok(result.content[0].text.includes(markdown));
+  }
+  const params = { type: "txt", tokens: Number(process.env.FETCH_DOCS_MEDIUM_TOKENS ?? 15_000), topic: "install" };
+  assert.deepEqual(docRequests, [id, otherId, id].map(id => ({ url: `${base}${id}/v2`, params })));
   const failure = await docs({ target: "offline" });
   assert.equal(failure.isError, true);
   assert.match(failure.content[0].text, /429/);

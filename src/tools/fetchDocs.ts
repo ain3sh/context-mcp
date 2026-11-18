@@ -50,28 +50,7 @@ function formatNoMatch(target: string, candidates: Candidate[]) {
   ].join("");
 }
 
-function formatDocs(docs: Awaited<ReturnType<typeof getDocumentation>>, tokens: number) {
-  const library = docs.library ?? "";
-  const snippets = docs.snippets ?? [];
-  const total = snippets.reduce((n, s) => n + (s.codeTokens ?? 0), 0);
-  const out = [
-    `# Documentation: ${library.split("/").at(-1)}\n`,
-    `**Library:** ${library}`, `**Version:** ${docs.version ?? ""}`,
-    ...(docs.topic ? [`**Topic:** ${docs.topic}`] : []),
-    `**Tokens:** ${total.toLocaleString()} / ${tokens.toLocaleString()} requested`, "\n---\n\n",
-  ];
-  for (const snippet of snippets) {
-    const title = snippet.codeTitle || snippet.pageTitle;
-    if (title) out.push(`## ${title}\n\n`);
-    const parts = snippet.codeDescription ? [snippet.codeDescription] : [];
-    for (const code of snippet.codeList ?? []) {
-      parts.push(snippet.codeLanguage ? `\n\n\`\`\`${snippet.codeLanguage}\n${code}\n\`\`\`` : code);
-    }
-    out.push(`${parts.join("\n\n")}\n\n`);
-    if (snippet.codeId) out.push(`[${snippet.pageTitle || "Source"}](${snippet.codeId})\n\n`);
-    out.push("---\n\n");
-  }
-  const text = out.join("");
+function truncateDocs(text: string) {
   const limit = 25_000;
   return text.length <= limit ? text : `${text.slice(0, limit)}\n\n[TRUNCATED - Response exceeds ${
     limit.toLocaleString()} characters. Try using a lower depth or adding a topic filter.]`;
@@ -104,8 +83,9 @@ async function fetchDocs({ target, browse_index, tag, version, depth }: z.infer<
   if (browse_index) return formatIndex(libraries, target);
   const match = matchLibrary(libraries, target);
   if (Array.isArray(match)) return formatNoMatch(target, match);
-  const tokens = depthTokens[depth];
-  return formatDocs(await getDocumentation(match, tag, version, tokens, signal), tokens);
+  const text = await getDocumentation(match.id, tag, version, depthTokens[depth], signal);
+  const library = version ? `${match.id} (${version})` : match.id;
+  return truncateDocs(`**Library:** ${library}\n\n${text}`);
 }
 
 export function registerFetchDocs(server: McpServer) {

@@ -14,6 +14,7 @@ export const source = z.enum([
   "google_scholar",
 ]);
 type Source = z.infer<typeof source>;
+const defaultSources = ["arxiv", "crossref"] as const satisfies readonly Source[];
 export const paper = z.object({
   reference: z.string(),
   title: z.string(),
@@ -77,14 +78,17 @@ async function lookup(s: Source, { query, year, limit }: Search, signal: AbortSi
     }));
   }
   if (s === "arxiv") {
-    const terms = query
-      .trim()
-      .split(/\s+/)
-      .map((t) => `all:"${t.replaceAll('"', "")}"`)
-      .join(" AND ");
+    const words = query.split(/[\s"\\]+/).filter(Boolean);
+    if (!words.length) return [];
+    // Title phrases find known papers; word matches in titles or abstracts keep topic searches broad.
+    const clauses = ["ti", "abs"].map((field) =>
+      words.map((word) => `${field}:"${word}"`).join(" AND ")
+    );
+    if (words.length > 1) clauses.unshift(`ti:"${words.join(" ")}"`);
     const params = new URLSearchParams({
       search_query:
-        terms + (from ? ` AND submittedDate:[${from}01010000 TO ${to || "9999"}12312359]` : ""),
+        `(${clauses.map((clause) => `(${clause})`).join(" OR ")})` +
+        (from ? ` AND submittedDate:[${from}01010000 TO ${to || "9999"}12312359]` : ""),
       max_results: String(limit),
       sortBy: "relevance",
     });
@@ -172,7 +176,7 @@ async function lookup(s: Source, { query, year, limit }: Search, signal: AbortSi
 }
 
 export async function searchPapers(input: Search, signal: AbortSignal) {
-  const indexes: Source[] = input.source ? [input.source] : ["semantic_scholar", "crossref"];
+  const indexes = input.source ? [input.source] : defaultSources;
   const results = await Promise.allSettled(
     indexes.map((s) => lookup(s, input, AbortSignal.any([signal, AbortSignal.timeout(25_000)]))),
   );
@@ -201,5 +205,10 @@ export async function searchPapers(input: Search, signal: AbortSignal) {
         prior.abstract ??= hit.abstract;
       } else papers.set(hit.reference, hit);
     }
-  return { papers: [...papers.values()].slice(0, input.limit), failures };
+  const normalize = (text: string) => text.trim().replace(/\s+/g, " ").toLowerCase();
+  const query = normalize(input.query);
+  const exact: Hit[] = [], related: Hit[] = [];
+  for (const hit of papers.values())
+    (normalize(hit.title) === query ? exact : related).push(hit);
+  return { papers: [...exact, ...related].slice(0, input.limit), failures };
 }

@@ -10,7 +10,7 @@ export function registerPaperSearch(server: McpServer) {
       inputSchema: z.strictObject({
         query: z.string().trim().min(1).max(2000),
         source: source.optional()
-          .describe("Restrict search to one index; default: Semantic Scholar and Crossref."),
+          .describe("Restrict search to one index; default: arXiv and Crossref."),
         year: z.string().regex(/^\d{4}(?:-(?:\d{4})?)?$/)
           .refine((y) => !y.slice(5) || y.slice(5) >= y.slice(0, 4), "End year must not precede start year")
           .optional().describe("YYYY, YYYY-YYYY, or YYYY- (inclusive)."),

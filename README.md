@@ -157,9 +157,9 @@ paper_search({ query: "late interaction retrieval", year: "2020-2024", limit: 5 
 paper_search({ query: "graph representation learning", source: "arxiv" })
 ```
 
-Defaults to Semantic Scholar and Crossref. Restrict `source` to `semantic_scholar`, `crossref`, `arxiv`, `pubmed`, `biorxiv`, `medrxiv`, or `google_scholar`. PubMed and the two preprint collections use source-restricted Europe PMC searches. Google Scholar can block automated requests. `year` accepts `YYYY`, `YYYY-YYYY`, or `YYYY-`; `limit` is 1–20 (default 10) after deduplication.
+Defaults to arXiv and Crossref. Restrict `source` to `arxiv`, `crossref`, `semantic_scholar`, `pubmed`, `biorxiv`, `medrxiv`, or `google_scholar`. Semantic Scholar can rate-limit unauthenticated requests. PubMed and the two preprint collections use source-restricted Europe PMC searches. Google Scholar can block automated requests. `year` accepts `YYYY`, `YYYY-YYYY`, or `YYYY-`; `limit` is 1–20 (default 10) after deduplication.
 
-`papers` contains `{reference, title, authors, year?, abstract?, sources}`. Identical identifiers merge, similar titles do not. `failures` distinguishes a partial search from zero matches. If all selected indexes fail, the tool returns an error.
+`papers` contains `{reference, title, authors, year?, abstract?, sources}`. Exact title matches rank first; other results are interleaved by source. Identical identifiers merge, similar titles do not. `failures` distinguishes a partial search from zero matches. If all selected indexes fail, the tool returns an error.
 
 ### `paper_read`
 

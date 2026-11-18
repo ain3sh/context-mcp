@@ -56,13 +56,11 @@ export function matchLibrary(libraries: Library[], target: string): Library | Ca
     const id = lib.id.toLowerCase();
     return { lib, title: lib.title.toLowerCase(), repo: id.split("/").at(-1)!, id };
   });
-  // Prefer exact title, then repository name, then id (with or without leading slash).
-  const lastFirst = [...names].reverse();
+  // An explicit library ID wins; Context7 already ranks matches within each tier.
   const bareQuery = query.replace(/^\/+/, "");
-  const exact = lastFirst.find((n) => n.title === query)
-    ?? lastFirst.find((n) => n.repo === query)
-    ?? lastFirst.find((n) => n.id === query)
-    ?? lastFirst.find((n) => n.id.replace(/^\/+/, "") === bareQuery);
+  const exact = names.find((n) => n.id.replace(/^\/+/, "") === bareQuery)
+    ?? names.find((n) => n.title === query)
+    ?? names.find((n) => n.repo === query);
   if (exact) return exact.lib;
 
   const candidates = names.map(({ lib, title, repo, id }) => ({
@@ -72,28 +70,17 @@ export function matchLibrary(libraries: Library[], target: string): Library | Ca
   return best && best.score >= semanticFloor ? best.lib : candidates;
 }
 
-interface Documentation {
-  library?: string;
-  version?: string;
-  topic?: string | null;
-  snippets?: {
-    codeDescription?: string;
-    codeList?: string[];
-    codeLanguage?: string;
-    codeTitle?: string;
-    pageTitle?: string;
-    codeId?: string;
-    codeTokens?: number;
-  }[];
-}
-
 export async function getDocumentation(
-  library: Library, topic: string | undefined, version: string | undefined, tokens: number, signal: AbortSignal,
+  libraryId: string, topic: string | undefined, version: string | undefined, tokens: number, signal: AbortSignal,
 ) {
-  const id = library.id.replace(/^\/+/, "");
-  const { data } = await axios.get<Documentation>(`${api}/${id}${version ? `/${version}` : ""}`, {
-    params: { type: "json", tokens, ...(topic && { topic }) },
+  const id = libraryId.replace(/^\/+/, "").split("/").map(encodeURIComponent).join("/");
+  const { data } = await axios.get<unknown>(`${api}/${id}${version ? `/${encodeURIComponent(version)}` : ""}`, {
+    params: { type: "txt", tokens, ...(topic && { topic }) },
+    responseType: "text",
     headers, signal,
   });
+  if (typeof data !== "string" || !data.trim()) {
+    throw new Error("Context7 returned no documentation text.");
+  }
   return data;
 }
